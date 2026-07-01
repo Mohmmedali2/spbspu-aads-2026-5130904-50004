@@ -1,5 +1,6 @@
 #include "DictionaryManager.h"
 
+#include <cstddef>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -29,15 +30,12 @@ int main() {
 
     while (true) {
         std::cout << "> ";
-        std::getline(std::cin, line);
+        if (!std::getline(std::cin, line)) break;
+        if (line.empty()) continue;
 
-        if (line.empty()) {
-            continue;
-        }
-
-        std::stringstream ss(line);
+        std::stringstream input(line);
         std::string command;
-        ss >> command;
+        input >> command;
 
         if (command == "exit") {
             break;
@@ -45,7 +43,7 @@ int main() {
             printHelp(std::cout);
         } else if (command == "create") {
             std::string dictionary;
-            ss >> dictionary;
+            input >> dictionary;
 
             if (dictionary.empty()) {
                 std::cout << "Usage: create <dictionary>\n";
@@ -56,7 +54,7 @@ int main() {
             }
         } else if (command == "delete") {
             std::string dictionary;
-            ss >> dictionary;
+            input >> dictionary;
 
             if (dictionary.empty()) {
                 std::cout << "Usage: delete <dictionary>\n";
@@ -68,13 +66,12 @@ int main() {
         } else if (command == "load") {
             std::string dictionary;
             std::string fileName;
-            ss >> dictionary >> fileName;
+            input >> dictionary >> fileName;
 
             if (dictionary.empty() || fileName.empty()) {
                 std::cout << "Usage: load <dictionary> <file-name>\n";
             } else {
-                int loadedWords = 0;
-
+                std::size_t loadedWords = 0;
                 if (manager.loadFromFile(dictionary, fileName, loadedWords)) {
                     std::cout << "File loaded. Words added: " << loadedWords << '\n';
                 } else {
@@ -84,7 +81,7 @@ int main() {
         } else if (command == "insert") {
             std::string dictionary;
             std::string word;
-            ss >> dictionary >> word;
+            input >> dictionary >> word;
 
             if (dictionary.empty() || word.empty()) {
                 std::cout << "Usage: insert <dictionary> <word>\n";
@@ -96,13 +93,12 @@ int main() {
         } else if (command == "search") {
             std::string dictionary;
             std::string word;
-            ss >> dictionary >> word;
+            input >> dictionary >> word;
 
             if (dictionary.empty() || word.empty()) {
                 std::cout << "Usage: search <dictionary> <word>\n";
             } else {
-                int frequency = 0;
-
+                std::size_t frequency = 0;
                 if (manager.searchWord(dictionary, word, frequency)) {
                     std::cout << word << " -> " << frequency << '\n';
                 } else {
@@ -112,7 +108,7 @@ int main() {
         } else if (command == "remove") {
             std::string dictionary;
             std::string word;
-            ss >> dictionary >> word;
+            input >> dictionary >> word;
 
             if (dictionary.empty() || word.empty()) {
                 std::cout << "Usage: remove <dictionary> <word>\n";
@@ -123,7 +119,7 @@ int main() {
             }
         } else if (command == "show") {
             std::string dictionary;
-            ss >> dictionary;
+            input >> dictionary;
 
             if (dictionary.empty()) {
                 std::cout << "Usage: show <dictionary>\n";
@@ -132,7 +128,7 @@ int main() {
             }
         } else if (command == "top") {
             std::string dictionary;
-            ss >> dictionary;
+            input >> dictionary;
 
             if (dictionary.empty()) {
                 std::cout << "Usage: top <dictionary>\n";
@@ -141,12 +137,11 @@ int main() {
             }
         } else if (command == "clear") {
             std::string dictionary;
-            ss >> dictionary;
+            input >> dictionary;
 
             if (dictionary.empty()) {
                 std::cout << "Usage: clear <dictionary>\n";
-            } else if (manager.exists(dictionary)) {
-                manager.clearDictionary(dictionary);
+            } else if (manager.clearDictionary(dictionary)) {
                 std::cout << "Dictionary cleared.\n";
             } else {
                 std::cout << "Dictionary not found.\n";

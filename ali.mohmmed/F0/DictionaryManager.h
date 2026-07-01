@@ -2,22 +2,15 @@
 #define DICTIONARYMANAGER_H
 
 #include "HashTable.h"
-#include <ostream>
+
+#include <cstddef>
+#include <iosfwd>
 #include <string>
-#include <vector>
 
 class DictionaryManager {
 private:
-    struct Dictionary {
-        std::string name;
-        HashTable table;
-
-        Dictionary(const std::string& dictionaryName, int tableSize = 1009)
-            : name(dictionaryName), table(tableSize) {}
-    };
-
-    std::vector<Dictionary> dictionaries;
-    int findDictionaryIndex(const std::string& name) const;
+    using WordTable = HashTable<std::string, std::size_t>;
+    HashTable<std::string, WordTable> dictionaries_;
 
 public:
     DictionaryManager();
@@ -28,15 +21,16 @@ public:
 
     bool insertWord(const std::string& dictionaryName, const std::string& word);
     bool removeWord(const std::string& dictionaryName, const std::string& word);
-    bool searchWord(const std::string& dictionaryName, const std::string& word, int& frequency) const;
-    bool loadFromFile(const std::string& dictionaryName, const std::string& fileName, int& loadedWords);
+    bool searchWord(const std::string& dictionaryName, const std::string& word, std::size_t& frequency) const;
+    bool loadFromFile(const std::string& dictionaryName, const std::string& fileName, std::size_t& loadedWords);
+
+    bool clearDictionary(const std::string& dictionaryName);
 
     void showDictionary(const std::string& dictionaryName, std::ostream& out) const;
     void showTopWord(const std::string& dictionaryName, std::ostream& out) const;
-    void clearDictionary(const std::string& dictionaryName);
     void showDictionaries(std::ostream& out) const;
 
-    int count() const;
+    std::size_t count() const;
 };
 
 #endif

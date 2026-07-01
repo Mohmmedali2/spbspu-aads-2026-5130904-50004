@@ -1,119 +1,147 @@
 #include "DictionaryManager.h"
 #include "TextProcessor.h"
 
-DictionaryManager::DictionaryManager() {}
+#include <ostream>
 
-int DictionaryManager::findDictionaryIndex(const std::string& name) const {
-    for (int i = 0; i < static_cast<int>(dictionaries.size()); i++) {
-        if (dictionaries[i].name == name) return i;
-    }
-    return -1;
-}
+DictionaryManager::DictionaryManager() :
+    dictionaries_()
+{}
 
 bool DictionaryManager::createDictionary(const std::string& name) {
-    if (name.empty() || exists(name)) return false;
-    dictionaries.push_back(Dictionary(name));
+    if (name.empty() || dictionaries_.contains(name)) return false;
+    dictionaries_.insert(name, WordTable());
     return true;
 }
 
 bool DictionaryManager::deleteDictionary(const std::string& name) {
-    int index = findDictionaryIndex(name);
-    if (index == -1) return false;
-
-    dictionaries.erase(dictionaries.begin() + index);
-    return true;
+    return dictionaries_.erase(name);
 }
 
 bool DictionaryManager::exists(const std::string& name) const {
-    return findDictionaryIndex(name) != -1;
+    return dictionaries_.contains(name);
 }
 
 bool DictionaryManager::insertWord(const std::string& dictionaryName, const std::string& word) {
-    int index = findDictionaryIndex(dictionaryName);
-    if (index == -1) return false;
+    WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) return false;
 
     std::string cleaned = TextProcessor::cleanWord(word);
-    return dictionaries[index].table.insert(cleaned);
+    if (cleaned.empty()) return false;
+
+    std::size_t* frequency = dictionary->find(cleaned);
+    if (frequency == 0) {
+        dictionary->insert(cleaned, 1);
+    } else {
+        ++(*frequency);
+    }
+
+    return true;
 }
 
 bool DictionaryManager::removeWord(const std::string& dictionaryName, const std::string& word) {
-    int index = findDictionaryIndex(dictionaryName);
-    if (index == -1) return false;
+    WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) return false;
 
     std::string cleaned = TextProcessor::cleanWord(word);
-    return dictionaries[index].table.remove(cleaned);
+    if (cleaned.empty()) return false;
+
+    return dictionary->erase(cleaned);
 }
 
-bool DictionaryManager::searchWord(const std::string& dictionaryName, const std::string& word, int& frequency) const {
-    int index = findDictionaryIndex(dictionaryName);
-    if (index == -1) return false;
+bool DictionaryManager::searchWord(const std::string& dictionaryName, const std::string& word, std::size_t& frequency) const {
+    const WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) return false;
 
     std::string cleaned = TextProcessor::cleanWord(word);
-    return dictionaries[index].table.search(cleaned, frequency);
+    const std::size_t* found = dictionary->find(cleaned);
+    if (found == 0) return false;
+
+    frequency = *found;
+    return true;
 }
 
-bool DictionaryManager::loadFromFile(const std::string& dictionaryName, const std::string& fileName, int& loadedWords) {
-    int index = findDictionaryIndex(dictionaryName);
+bool DictionaryManager::loadFromFile(const std::string& dictionaryName, const std::string& fileName, std::size_t& loadedWords) {
+    WordTable* dictionary = dictionaries_.find(dictionaryName);
     loadedWords = 0;
 
-    if (index == -1) return false;
+    if (dictionary == 0) return false;
 
-    std::vector<std::string> words = TextProcessor::loadWords(fileName);
-    if (words.empty()) return false;
+    return TextProcessor::processFile(fileName, [dictionary, &loadedWords](const std::string& word) {
+        std::size_t* frequency = dictionary->find(word);
+        if (frequency == 0) {
+            dictionary->insert(word, 1);
+        } else {
+            ++(*frequency);
+        }
+        ++loadedWords;
+    });
+}
 
-    for (const std::string& word : words) {
-        if (dictionaries[index].table.insert(word)) loadedWords++;
-    }
+bool DictionaryManager::clearDictionary(const std::string& dictionaryName) {
+    WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) return false;
 
+    dictionary->clear();
     return true;
 }
 
 void DictionaryManager::showDictionary(const std::string& dictionaryName, std::ostream& out) const {
-    int index = findDictionaryIndex(dictionaryName);
-
-    if (index == -1) {
+    const WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) {
         out << "Dictionary not found.\n";
         return;
     }
 
-    out << "Dictionary: " << dictionaries[index].name << '\n';
-    dictionaries[index].table.show(out);
+    if (dictionary->empty()) {
+        out << "Dictionary is empty.\n";
+        return;
+    }
+
+    out << "Dictionary: " << dictionaryName << '\n';
+    out << "Word\tFrequency\n";
+    out << "------------------------\n";
+
+    dictionary->forEach([&out](const std::string& word, const std::size_t& frequency) {
+        out << word << '\t' << frequency << '\n';
+    });
 }
 
 void DictionaryManager::showTopWord(const std::string& dictionaryName, std::ostream& out) const {
-    int index = findDictionaryIndex(dictionaryName);
-
-    if (index == -1) {
+    const WordTable* dictionary = dictionaries_.find(dictionaryName);
+    if (dictionary == 0) {
         out << "Dictionary not found.\n";
         return;
     }
 
-    std::pair<std::string, int> top = dictionaries[index].table.topWord();
+    std::string topWord;
+    std::size_t topFrequency = 0;
 
-    if (top.second == 0) {
+    dictionary->forEach([&topWord, &topFrequency](const std::string& word, const std::size_t& frequency) {
+        if (frequency > topFrequency) {
+            topWord = word;
+            topFrequency = frequency;
+        }
+    });
+
+    if (topFrequency == 0) {
         out << "Dictionary is empty.\n";
     } else {
-        out << top.first << " -> " << top.second << '\n';
+        out << topWord << " -> " << topFrequency << '\n';
     }
 }
 
-void DictionaryManager::clearDictionary(const std::string& dictionaryName) {
-    int index = findDictionaryIndex(dictionaryName);
-    if (index != -1) dictionaries[index].table.clear();
-}
-
 void DictionaryManager::showDictionaries(std::ostream& out) const {
-    if (dictionaries.empty()) {
+    if (dictionaries_.empty()) {
         out << "No dictionaries.\n";
         return;
     }
 
     out << "Dictionaries:\n";
-    for (const Dictionary& dictionary : dictionaries) {
-        out << dictionary.name << " (" << dictionary.table.size() << " unique words)\n";
-    }
+    dictionaries_.forEach([&out](const std::string& name, const WordTable& dictionary) {
+        out << name << " (" << dictionary.size() << " unique words)\n";
+    });
 }
 
-int DictionaryManager::count() const {
-    return static_cast<int>(dictionaries.size());
+std::size_t DictionaryManager::count() const {
+    return dictionaries_.size();
 }
